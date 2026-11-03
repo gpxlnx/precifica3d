@@ -86,8 +86,9 @@
     <div class="grid">
       <label>Nome do produto<input id="name" placeholder="ex: Suporte de fone"></label>
       <label>Preço do filamento (R$/kg)<input id="pricePerKg" placeholder="ex: 90,00"></label>
-      <label>Peso do modelo (g)<input id="weightG" placeholder="ex: 100"></label>
-      <label>Tempo de impressão (HH:mm)<input id="time" placeholder="ex: 05:30"></label>
+      <label>Peso total da impressão (g)<input id="weightG" placeholder="ex: 100"></label>
+      <label>Tempo total de impressão (HH:mm)<input id="time" placeholder="ex: 05:30"></label>
+      <label>Quantidade de peças<input id="quantity" value="1" placeholder="ex: 10"></label>
     </div>
   </section>
 
@@ -107,23 +108,34 @@
 
   <section>
     <h2>💰 Resultado</h2>
+    <p class="subtitle" id="qtyNote" style="margin:4px 0 0;"></p>
     <table class="breakdown">
-      <tr><td>Filamento</td><td id="rFilament">—</td></tr>
-      <tr><td>Energia</td><td id="rEnergy">—</td></tr>
-      <tr><td>Depreciação</td><td id="rDepreciation">—</td></tr>
-      <tr class="total"><td>Custo total</td><td id="rCost">—</td></tr>
+      <tr><td>Filamento (por peça)</td><td id="rFilament">—</td></tr>
+      <tr><td>Energia (por peça)</td><td id="rEnergy">—</td></tr>
+      <tr><td>Depreciação (por peça)</td><td id="rDepreciation">—</td></tr>
+      <tr class="total"><td>Custo total (por peça)</td><td id="rCost">—</td></tr>
       <tr><td>+ Risco (<span id="lRisk">10</span>%)</td><td id="rRisk">—</td></tr>
       <tr><td>+ Taxa extra (<span id="lFee">5</span>%)</td><td id="rFee">—</td></tr>
       <tr><td>+ Lucro bruto (<span id="lProfit">20</span>%)</td><td id="rProfit">—</td></tr>
-      <tr class="final"><td>× Markup (<span id="lMarkup">2</span>) — PREÇO FINAL</td><td id="rFinal">—</td></tr>
+      <tr class="final"><td>× Markup (<span id="lMarkup">2</span>) — PREÇO UNITÁRIO</td><td id="rFinal">—</td></tr>
+      <tr class="total"><td>Total do lote (<span id="lQty">1</span> peça(s))</td><td id="rBatchTotal">—</td></tr>
     </table>
+    <p id="editingNotice" class="empty" style="display:none;">Editando orçamento salvo — salvar vai atualizar o registro. <button class="ghost" id="cancelEditBtn" type="button">Cancelar edição</button></p>
     <button id="saveBtn" disabled>Salvar produto</button><button id="pdfBtn" disabled>Exportar PDF</button>
   </section>
 
   <section>
-    <h2>📋 Catálogo</h2>
+    <h2>📋 Histórico de orçamentos</h2>
+    <div class="grid" style="grid-template-columns:1fr;">
+      <label>Buscar por nome<input id="searchBox" placeholder="ex: suporte"></label>
+    </div>
     <div id="catalogWrap"><p class="empty">Nenhum produto salvo ainda.</p></div>
-    <button id="exportBtn" class="ghost" disabled>Exportar CSV</button>
+    <div class="actions" style="justify-content:flex-start;flex-wrap:wrap;">
+      <button id="exportBtn" class="ghost" disabled>Exportar CSV</button>
+      <button id="exportJsonBtn" class="ghost" disabled>Exportar backup (JSON)</button>
+      <button id="importJsonBtn" class="ghost">Importar backup (JSON)</button>
+      <input id="importJsonFile" type="file" accept="application/json" style="display:none">
+    </div>
   </section>
 
   <details class="guide">
@@ -156,6 +168,7 @@
         <li><strong>Venda direta:</strong> markup 2. <strong>Shopee/Mercado Livre:</strong> 2,5–3 (comissão de ~15–20%).</li>
         <li><strong>Filamento especial</strong> (PETG, ABS, seda): ajuste o R$/kg por peça.</li>
         <li><strong>Peças demoradas:</strong> não arredonde o tempo para baixo — depreciação cresce com as horas.</li>
+        <li><strong>Lote com várias peças na mesma impressão</strong> (ex: placa com 10 chaveiros): informe peso e tempo <em>totais</em> da impressão e coloque a quantidade — o app divide tudo por peça automaticamente.</li>
       </ul>
     </div>
   </details>
@@ -186,7 +199,7 @@
   }
 
   var PRICING_FIELDS = [
-    'pricePerKg', 'weightG', 'hours',
+    'pricePerKg', 'weightG', 'hours', 'quantity',
     'printerValue', 'lifespanH', 'powerW', 'tariff',
     'riskPct', 'feePct', 'profitPct', 'markup'
   ];
@@ -196,16 +209,21 @@
       var v = i[PRICING_FIELDS[k]];
       if (typeof v !== 'number' || isNaN(v) || v < 0) return null;
     }
-    if (i.lifespanH === 0) return null;
+    if (i.lifespanH === 0 || i.quantity === 0) return null;
 
-    var filament = (i.pricePerKg / 1000) * i.weightG;
-    var energy = (i.powerW / 1000) * i.hours * i.tariff;
-    var depreciation = (i.printerValue / i.lifespanH) * i.hours;
+    var filamentTotal = (i.pricePerKg / 1000) * i.weightG;
+    var energyTotal = (i.powerW / 1000) * i.hours * i.tariff;
+    var depreciationTotal = (i.printerValue / i.lifespanH) * i.hours;
+
+    var filament = filamentTotal / i.quantity;
+    var energy = energyTotal / i.quantity;
+    var depreciation = depreciationTotal / i.quantity;
     var cost = filament + energy + depreciation;
     var afterRisk = cost * (1 + i.riskPct / 100);
     var afterFee = afterRisk * (1 + i.feePct / 100);
     var afterProfit = afterFee * (1 + i.profitPct / 100);
     var finalPrice = afterProfit * i.markup;
+    var batchTotal = finalPrice * i.quantity;
 
     return {
       filament: filament,
@@ -215,7 +233,8 @@
       afterRisk: afterRisk,
       afterFee: afterFee,
       afterProfit: afterProfit,
-      finalPrice: finalPrice
+      finalPrice: finalPrice,
+      batchTotal: batchTotal
     };
   }
 
@@ -250,10 +269,13 @@
   }
 
   function catalogToCSV(products) {
-    var header = 'Nome;Peso (g);Tempo;Custo total (R$);Preço final (R$)';
+    var header = 'Data;Nome;Peso total (g);Tempo total;Quantidade;Custo/peça (R$);Preço/peça (R$);Total do lote (R$)';
     var lines = products.map(function (p) {
       var name = '"' + String(p.name).replace(/"/g, '""') + '"';
-      return [name, csvNumber(p.weightG), p.time, csvNumber(p.cost), csvNumber(p.price)].join(';');
+      var date = p.createdAt ? new Date(p.createdAt).toLocaleString('pt-BR') : '';
+      var qty = p.quantity || 1;
+      var batch = p.batchTotal != null ? p.batchTotal : p.price * qty;
+      return [date, name, csvNumber(p.weightG), p.time, String(qty), csvNumber(p.cost), csvNumber(p.price), csvNumber(batch)].join(';');
     });
     return [header].concat(lines).join('\r\n');
   }
@@ -281,16 +303,39 @@
   var CATALOG_KEY = 'precifica3d.catalog';
 
   var configIds = ['printerValue', 'lifespanH', 'powerW', 'tariff', 'riskPct', 'feePct', 'profitPct', 'markup'];
-  var pieceIds = ['name', 'pricePerKg', 'weightG', 'time'];
+  var pieceIds = ['name', 'pricePerKg', 'weightG', 'time', 'quantity'];
+  var snapshotIds = configIds.concat(pieceIds); // raw field values saved with each quote
 
   // input element id -> pricing field name (time parses to hours; the rest parse as numbers)
   var fieldByInput = {
     printerValue: 'printerValue', lifespanH: 'lifespanH', powerW: 'powerW', tariff: 'tariff',
     riskPct: 'riskPct', feePct: 'feePct', profitPct: 'profitPct', markup: 'markup',
-    pricePerKg: 'pricePerKg', weightG: 'weightG', time: 'hours'
+    pricePerKg: 'pricePerKg', weightG: 'weightG', time: 'hours', quantity: 'quantity'
   };
 
   var current = null; // { inputs, result } of last valid calculation
+  var editingId = null; // id of catalog entry being edited, or null when creating new
+  var searchTerm = '';
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  // old entries had no id/createdAt/fields snapshot — backfill on load so every
+  // record has a stable shape going forward
+  function migrateEntry(p) {
+    if (!p.id) p.id = uid();
+    if (!p.createdAt) p.createdAt = p.updatedAt || Date.now();
+    if (!p.updatedAt) p.updatedAt = p.createdAt;
+    if (!p.quantity) p.quantity = 1;
+    if (p.batchTotal == null) p.batchTotal = p.price * p.quantity;
+    if (!p.fields) {
+      var legacy = { name: p.name, pricePerKg: p.pricePerKg, weightG: String(p.weightG).replace('.', ','), time: p.time, quantity: String(p.quantity) };
+      p.fields = {};
+      snapshotIds.forEach(function (id) { p.fields[id] = legacy.hasOwnProperty(id) ? legacy[id] : ''; });
+    }
+    return p;
+  }
 
   function $(id) { return document.getElementById(id); }
 
@@ -316,10 +361,15 @@
   }
 
   function loadCatalog() {
+    var items;
     try {
-      var items = JSON.parse(localStorage.getItem(CATALOG_KEY));
-      return Array.isArray(items) ? items : [];
+      items = JSON.parse(localStorage.getItem(CATALOG_KEY));
+      items = Array.isArray(items) ? items : [];
     } catch (e) { return []; }
+    var migratedAny = false;
+    items.forEach(function (p) { if (!p.id) migratedAny = true; migrateEntry(p); });
+    if (migratedAny) saveCatalog(items);
+    return items;
   }
 
   function saveCatalog(items) {
@@ -346,78 +396,192 @@
     $('lFee').textContent = isNaN(f.feePct) ? '?' : f.feePct;
     $('lProfit').textContent = isNaN(f.profitPct) ? '?' : f.profitPct;
     $('lMarkup').textContent = isNaN(f.markup) ? '?' : f.markup;
+    $('lQty').textContent = isNaN(f.quantity) ? '?' : f.quantity;
 
     var cells = {
       rFilament: 'filament', rEnergy: 'energy', rDepreciation: 'depreciation', rCost: 'cost',
-      rRisk: 'afterRisk', rFee: 'afterFee', rProfit: 'afterProfit', rFinal: 'finalPrice'
+      rRisk: 'afterRisk', rFee: 'afterFee', rProfit: 'afterProfit', rFinal: 'finalPrice',
+      rBatchTotal: 'batchTotal'
     };
     Object.keys(cells).forEach(function (id) {
       $(id).textContent = r ? P.formatBRL(r[cells[id]]) : '—';
     });
+
+    $('qtyNote').textContent = (r && f.quantity > 1)
+      ? 'Peso e tempo informados são do lote inteiro — custo/preço acima já divididos por ' + f.quantity + ' peça(s).'
+      : '';
 
     $('saveBtn').disabled = !(r && $('name').value.trim() !== '');
     $('pdfBtn').disabled = $('saveBtn').disabled;
     saveConfig();
   }
 
+  function formatDate(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function matchesSearch(p, term) {
+    if (!term) return true;
+    return String(p.name).toLowerCase().indexOf(term) !== -1;
+  }
+
   function renderCatalog() {
     var items = loadCatalog();
     var wrap = $('catalogWrap');
     $('exportBtn').disabled = items.length === 0;
+    $('exportJsonBtn').disabled = items.length === 0;
     if (items.length === 0) {
       wrap.innerHTML = '<p class="empty">Nenhum produto salvo ainda.</p>';
       return;
     }
-    var rows = items.map(function (p, i) {
+    var term = searchTerm.trim().toLowerCase();
+    var visible = items.filter(function (p) { return matchesSearch(p, term); });
+    if (visible.length === 0) {
+      wrap.innerHTML = '<p class="empty">Nenhum orçamento encontrado para "' + escapeHtml(searchTerm) + '".</p>';
+      return;
+    }
+    var sorted = visible.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    var rows = sorted.map(function (p) {
+      var qty = p.quantity || 1;
+      var batch = p.batchTotal != null ? p.batchTotal : p.price * qty;
       return '<tr>' +
+        '<td>' + formatDate(p.createdAt) + '</td>' +
         '<td>' + escapeHtml(p.name) + '</td>' +
         '<td>' + escapeHtml(p.weightG) + ' g</td>' +
         '<td>' + escapeHtml(p.time) + '</td>' +
+        '<td>' + escapeHtml(qty) + '</td>' +
         '<td>' + P.formatBRL(p.cost) + '</td>' +
         '<td>' + P.formatBRL(p.price) + '</td>' +
+        '<td>' + P.formatBRL(batch) + '</td>' +
         '<td class="actions">' +
-          '<button class="ghost" data-action="reload" data-i="' + i + '">Recarregar</button>' +
-          '<button class="ghost" data-action="delete" data-i="' + i + '">Excluir</button>' +
+          '<button class="ghost" data-action="reload" data-id="' + p.id + '">Recarregar</button>' +
+          '<button class="ghost" data-action="edit" data-id="' + p.id + '">Editar</button>' +
+          '<button class="ghost" data-action="delete" data-id="' + p.id + '">Excluir</button>' +
         '</td></tr>';
     }).join('');
     wrap.innerHTML = '<table class="catalog"><thead><tr>' +
-      '<th>Nome</th><th>Peso</th><th>Tempo</th><th>Custo</th><th>Preço</th><th></th>' +
+      '<th>Data</th><th>Nome</th><th>Peso</th><th>Tempo</th><th>Qtd</th><th>Custo/un</th><th>Preço/un</th><th>Total lote</th><th></th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function applyEntryToForm(p) {
+    snapshotIds.forEach(function (id) {
+      if (p.fields && typeof p.fields[id] === 'string' && p.fields[id] !== '') $(id).value = p.fields[id];
+    });
+    recalc();
+  }
+
+  function setEditing(id) {
+    editingId = id;
+    $('editingNotice').style.display = id ? '' : 'none';
+    $('saveBtn').textContent = id ? 'Atualizar orçamento' : 'Salvar produto';
   }
 
   $('saveBtn').addEventListener('click', function () {
     if (!current) return;
     var items = loadCatalog();
-    items.push({
-      name: $('name').value.trim(),
-      pricePerKg: $('pricePerKg').value,
-      weightG: current.inputs.weightG,
-      time: $('time').value.trim(),
-      cost: current.result.cost,
-      price: current.result.finalPrice
-    });
+    var fields = {};
+    snapshotIds.forEach(function (id) { fields[id] = $(id).value; });
+    var now = Date.now();
+
+    if (editingId) {
+      var idx = items.findIndex(function (p) { return p.id === editingId; });
+      if (idx === -1) { setEditing(null); return; }
+      items[idx].name = $('name').value.trim();
+      items[idx].pricePerKg = $('pricePerKg').value;
+      items[idx].weightG = current.inputs.weightG;
+      items[idx].time = $('time').value.trim();
+      items[idx].quantity = current.inputs.quantity;
+      items[idx].cost = current.result.cost;
+      items[idx].price = current.result.finalPrice;
+      items[idx].batchTotal = current.result.batchTotal;
+      items[idx].fields = fields;
+      items[idx].updatedAt = now;
+      setEditing(null);
+    } else {
+      items.push({
+        id: uid(),
+        createdAt: now,
+        updatedAt: now,
+        name: $('name').value.trim(),
+        pricePerKg: $('pricePerKg').value,
+        weightG: current.inputs.weightG,
+        time: $('time').value.trim(),
+        quantity: current.inputs.quantity,
+        cost: current.result.cost,
+        price: current.result.finalPrice,
+        batchTotal: current.result.batchTotal,
+        fields: fields
+      });
+    }
     saveCatalog(items);
     renderCatalog();
   });
+
+  $('cancelEditBtn').addEventListener('click', function () { setEditing(null); });
 
   $('catalogWrap').addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-action]');
     if (!btn) return;
     var items = loadCatalog();
-    var i = parseInt(btn.getAttribute('data-i'), 10);
-    if (!items[i]) { renderCatalog(); return; }
-    if (btn.getAttribute('data-action') === 'delete') {
-      items.splice(i, 1);
+    var id = btn.getAttribute('data-id');
+    var p = items.find(function (x) { return x.id === id; });
+    if (!p) { renderCatalog(); return; }
+    var action = btn.getAttribute('data-action');
+    if (action === 'delete') {
+      if (editingId === id) setEditing(null);
+      saveCatalog(items.filter(function (x) { return x.id !== id; }));
+      renderCatalog();
+    } else if (action === 'edit') {
+      setEditing(id);
+      applyEntryToForm(p);
+    } else {
+      setEditing(null);
+      applyEntryToForm(p);
+    }
+  });
+
+  $('searchBox').addEventListener('input', function () {
+    searchTerm = this.value;
+    renderCatalog();
+  });
+
+  $('exportJsonBtn').addEventListener('click', function () {
+    var items = loadCatalog();
+    var blob = new Blob([JSON.stringify({ version: 1, exportedAt: Date.now(), items: items }, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'precifica3d-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  $('importJsonBtn').addEventListener('click', function () { $('importJsonFile').click(); });
+
+  $('importJsonFile').addEventListener('change', function () {
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var parsed;
+      try { parsed = JSON.parse(reader.result); } catch (e) { alert('Arquivo inválido.'); return; }
+      var incoming = Array.isArray(parsed) ? parsed : parsed.items;
+      if (!Array.isArray(incoming)) { alert('Arquivo inválido.'); return; }
+      incoming = incoming.map(migrateEntry);
+      var items = loadCatalog();
+      var byId = {};
+      items.forEach(function (p, idx) { byId[p.id] = idx; });
+      incoming.forEach(function (p) {
+        if (byId.hasOwnProperty(p.id)) items[byId[p.id]] = p;
+        else items.push(p);
+      });
       saveCatalog(items);
       renderCatalog();
-    } else {
-      var p = items[i];
-      $('name').value = p.name;
-      $('pricePerKg').value = p.pricePerKg;
-      $('weightG').value = String(p.weightG).replace('.', ',');
-      $('time').value = p.time;
-      recalc();
-    }
+      alert('Importado: ' + incoming.length + ' orçamento(s).');
+    };
+    reader.readAsText(file);
   });
 
   $('pdfBtn').addEventListener('click', function () {
@@ -425,25 +589,28 @@
     var f = current.inputs;
     var r = current.result;
     var rows = [
-      ['Filamento', r.filament],
-      ['Energia', r.energy],
-      ['Depreciação', r.depreciation],
-      ['Custo total', r.cost],
+      ['Filamento (por peça)', r.filament],
+      ['Energia (por peça)', r.energy],
+      ['Depreciação (por peça)', r.depreciation],
+      ['Custo total (por peça)', r.cost],
       ['+ Risco (' + f.riskPct + '%)', r.afterRisk],
       ['+ Taxa extra (' + f.feePct + '%)', r.afterFee],
       ['+ Lucro bruto (' + f.profitPct + '%)', r.afterProfit]
     ];
+    var qtyLabel = f.quantity > 1 ? (' • ' + f.quantity + ' peças (lote)') : '';
     $('quote').innerHTML = '<h1>Orçamento — Impressão 3D</h1>' +
       '<p class="quote-meta">' + escapeHtml($('name').value.trim()) +
       ' • ' + escapeHtml($('weightG').value.trim()) + ' g' +
       ' • ' + escapeHtml($('time').value.trim()) +
+      qtyLabel +
       ' • ' + new Date().toLocaleDateString('pt-BR') + '</p>' +
       '<table>' +
       rows.map(function (row) {
         return '<tr><td>' + row[0] + '</td><td>' + P.formatBRL(row[1]) + '</td></tr>';
       }).join('') +
-      '<tr class="q-final"><td>Preço final (markup ×' + f.markup + ')</td><td>' +
+      '<tr class="q-final"><td>Preço unitário (markup ×' + f.markup + ')</td><td>' +
       P.formatBRL(r.finalPrice) + '</td></tr>' +
+      (f.quantity > 1 ? '<tr class="q-final"><td>Total do lote (' + f.quantity + ' un.)</td><td>' + P.formatBRL(r.batchTotal) + '</td></tr>' : '') +
       '</table>';
     window.print();
   });
