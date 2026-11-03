@@ -1,0 +1,471 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Precifica3D — Precificação de Impressão 3D</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #10141a; --panel: #1a2029; --border: #2c3542;
+    --text: #e6e9ef; --muted: #8b95a5; --accent: #4f9cf9;
+    --green: #3ecf8e; --red: #e5484d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #f2f4f8; --panel: #ffffff; --border: #d7dde6;
+      --text: #171c24; --muted: #5c6675; --accent: #2b6fd8;
+      --green: #148f62; --red: #ce2f34;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #10141a; --panel: #1a2029; --border: #2c3542;
+    --text: #e6e9ef; --muted: #8b95a5; --accent: #4f9cf9;
+    --green: #3ecf8e; --red: #e5484d;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f2f4f8; --panel: #ffffff; --border: #d7dde6;
+    --text: #171c24; --muted: #5c6675; --accent: #2b6fd8;
+    --green: #148f62; --red: #ce2f34;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 24px; font-size: .9rem; }
+  section, details { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  summary { cursor: pointer; font-weight: 600; }
+  h2 { font-size: 1.05rem; margin: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: var(--muted); }
+  input { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px; font-size: 1rem; width: 100%; }
+  input:focus { outline: none; border-color: var(--accent); }
+  input.invalid { border-color: var(--red); }
+  table.breakdown { width: 100%; border-collapse: collapse; margin-top: 12px; font-variant-numeric: tabular-nums; }
+  table.breakdown td { padding: 4px 0; }
+  table.breakdown td:last-child { text-align: right; }
+  tr.total td { border-top: 1px solid var(--border); font-weight: 600; padding-top: 8px; }
+  tr.final td { font-size: 1.25rem; font-weight: 700; color: var(--green); padding-top: 10px; }
+  button { background: var(--accent); border: 0; color: #fff; border-radius: 6px; padding: 10px 16px; font-size: .95rem; cursor: pointer; margin-top: 12px; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; margin: 0; font-size: .8rem; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  table.catalog { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: .9rem; }
+  table.catalog th, table.catalog td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+  table.catalog td:nth-child(n+2):not(:last-child), table.catalog th:nth-child(n+2) { text-align: right; }
+  .actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .empty { color: var(--muted); font-size: .9rem; margin: 12px 0 0; }
+  #pdfBtn { margin-left: 8px; }
+  .guide summary { color: var(--muted); }
+  .guide-body { font-size: .9rem; line-height: 1.55; }
+  .guide-body h3 { font-size: .95rem; margin: 16px 0 6px; }
+  .guide-body p, .guide-body ul { margin: 6px 0; color: var(--text); }
+  .guide-body .hint { color: var(--muted); }
+  .guide-table { border-collapse: collapse; margin: 6px 0; font-variant-numeric: tabular-nums; }
+  .guide-table td { padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .guide-table td:first-child { padding-right: 24px; color: var(--muted); }
+  .guide-table td:last-child { text-align: right; }
+  .print-quote { display: none; }
+  @media print {
+    body { background: #fff; color: #000; }
+    main { display: none; }
+    .print-quote { display: block; color: #000; padding: 24px; }
+    .print-quote h1 { font-size: 1.4rem; margin: 0 0 2px; }
+    .print-quote .quote-meta { color: #555; margin: 0 0 20px; font-size: .9rem; }
+    .print-quote table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    .print-quote td { padding: 6px 0; border-bottom: 1px solid #ddd; }
+    .print-quote td:last-child { text-align: right; }
+    .print-quote tr.q-final td { border-bottom: none; border-top: 2px solid #000; font-size: 1.2rem; font-weight: 700; padding-top: 10px; }
+  }
+</style>
+<main>
+  <h1>Precifica3D</h1>
+  <p class="subtitle">Calculadora de precificação de impressão 3D — Bambu Lab A1</p>
+
+  <section>
+    <h2>📦 Dados da peça</h2>
+    <div class="grid">
+      <label>Nome do produto<input id="name" placeholder="ex: Suporte de fone"></label>
+      <label>Preço do filamento (R$/kg)<input id="pricePerKg" placeholder="ex: 90,00"></label>
+      <label>Peso do modelo (g)<input id="weightG" placeholder="ex: 100"></label>
+      <label>Tempo de impressão (HH:mm)<input id="time" placeholder="ex: 05:30"></label>
+    </div>
+  </section>
+
+  <details id="config" open>
+    <summary>⚙️ Configuração da impressora</summary>
+    <div class="grid">
+      <label>Valor da impressora (R$)<input id="printerValue" value="1500"></label>
+      <label>Vida útil (horas)<input id="lifespanH" value="8000"></label>
+      <label>Consumo (W)<input id="powerW" value="110"></label>
+      <label>Tarifa de energia (R$/kWh)<input id="tariff" placeholder="ex: 0,85"></label>
+      <label>Risco (%)<input id="riskPct" value="10"></label>
+      <label>Taxa extra (%)<input id="feePct" value="5"></label>
+      <label>Lucro bruto (%)<input id="profitPct" value="20"></label>
+      <label>Markup (×)<input id="markup" value="2"></label>
+    </div>
+  </details>
+
+  <section>
+    <h2>💰 Resultado</h2>
+    <table class="breakdown">
+      <tr><td>Filamento</td><td id="rFilament">—</td></tr>
+      <tr><td>Energia</td><td id="rEnergy">—</td></tr>
+      <tr><td>Depreciação</td><td id="rDepreciation">—</td></tr>
+      <tr class="total"><td>Custo total</td><td id="rCost">—</td></tr>
+      <tr><td>+ Risco (<span id="lRisk">10</span>%)</td><td id="rRisk">—</td></tr>
+      <tr><td>+ Taxa extra (<span id="lFee">5</span>%)</td><td id="rFee">—</td></tr>
+      <tr><td>+ Lucro bruto (<span id="lProfit">20</span>%)</td><td id="rProfit">—</td></tr>
+      <tr class="final"><td>× Markup (<span id="lMarkup">2</span>) — PREÇO FINAL</td><td id="rFinal">—</td></tr>
+    </table>
+    <button id="saveBtn" disabled>Salvar produto</button><button id="pdfBtn" disabled>Exportar PDF</button>
+  </section>
+
+  <section>
+    <h2>📋 Catálogo</h2>
+    <div id="catalogWrap"><p class="empty">Nenhum produto salvo ainda.</p></div>
+    <button id="exportBtn" class="ghost" disabled>Exportar CSV</button>
+  </section>
+
+  <details class="guide">
+    <summary>📖 Guia rápido — exemplo Bambu Lab A1 + Copel PR</summary>
+    <div class="guide-body">
+      <h3>Tarifa de energia</h3>
+      <p>Copel PR residencial (2026): <strong>≈ R$ 0,76/kWh</strong>. O jeito certo de achar a <em>sua</em> tarifa: pegue uma fatura e divida o <strong>total pago</strong> pelo <strong>consumo em kWh</strong> do mês — isso já embute ICMS, PIS/COFINS e bandeira. Revisão de ~19% aprovada para jun/2026: confira a fatura de vez em quando e atualize o campo (fica salvo).</p>
+
+      <h3>Valores de referência — Bambu Lab A1</h3>
+      <table class="guide-table">
+        <tr><td>Valor da impressora</td><td>R$ 1.500–2.500</td></tr>
+        <tr><td>Vida útil</td><td>8.000 h</td></tr>
+        <tr><td>Consumo (PLA)</td><td>110 W <span class="hint">(ABS/mesa quente: ~150 W)</span></td></tr>
+        <tr><td>Filamento PLA nacional</td><td>R$ 90/kg</td></tr>
+      </table>
+
+      <h3>Exemplo: peça de 100 g, 5 h de impressão</h3>
+      <table class="guide-table">
+        <tr><td>Filamento (90÷1000 × 100)</td><td>R$ 9,00</td></tr>
+        <tr><td>Energia (110÷1000 × 5 × 0,76)</td><td>R$ 0,42</td></tr>
+        <tr><td>Depreciação (1500÷8000 × 5)</td><td>R$ 0,94</td></tr>
+        <tr><td><strong>Custo total</strong></td><td><strong>R$ 10,36</strong></td></tr>
+        <tr><td>+ Risco 10% → + Taxa 5% → + Lucro 20%</td><td>R$ 14,35</td></tr>
+        <tr><td><strong>× Markup 2 = PREÇO DE VENDA</strong></td><td><strong>R$ 28,71</strong></td></tr>
+      </table>
+      <p>O filamento domina o custo — energia no PR é quase irrelevante (R$ 0,42 em 5 h). A diferença entre custo e preço não é lucro puro: paga seu tempo (fatiar, embalar, atender), manutenção (nozzle, placa, correias) e comissão de marketplace.</p>
+
+      <h3>Dicas</h3>
+      <ul>
+        <li><strong>Venda direta:</strong> markup 2. <strong>Shopee/Mercado Livre:</strong> 2,5–3 (comissão de ~15–20%).</li>
+        <li><strong>Filamento especial</strong> (PETG, ABS, seda): ajuste o R$/kg por peça.</li>
+        <li><strong>Peças demoradas:</strong> não arredonde o tempo para baixo — depreciação cresce com as horas.</li>
+      </ul>
+    </div>
+  </details>
+</main>
+<div id="quote" class="print-quote"></div>
+<script>
+(function (global) {
+  'use strict';
+
+  function parseNumber(str) {
+    if (typeof str === 'number') return str;
+    if (typeof str !== 'string') return NaN;
+    var s = str.trim().replace(/\s+/g, '');
+    if (s === '') return NaN;
+    if (s.indexOf(',') !== -1) {
+      if (s.indexOf(',') !== s.lastIndexOf(',')) return NaN;
+      s = s.replace(/\./g, '').replace(',', '.');
+    }
+    if (!/^-?\d+(\.\d+)?$/.test(s)) return NaN;
+    return parseFloat(s);
+  }
+
+  function parseTimeToHours(str) {
+    if (typeof str !== 'string') return NaN;
+    var m = str.trim().match(/^(\d+):([0-5]\d)$/);
+    if (!m) return NaN;
+    return parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
+  }
+
+  var PRICING_FIELDS = [
+    'pricePerKg', 'weightG', 'hours',
+    'printerValue', 'lifespanH', 'powerW', 'tariff',
+    'riskPct', 'feePct', 'profitPct', 'markup'
+  ];
+
+  function computePricing(i) {
+    for (var k = 0; k < PRICING_FIELDS.length; k++) {
+      var v = i[PRICING_FIELDS[k]];
+      if (typeof v !== 'number' || isNaN(v) || v < 0) return null;
+    }
+    if (i.lifespanH === 0) return null;
+
+    var filament = (i.pricePerKg / 1000) * i.weightG;
+    var energy = (i.powerW / 1000) * i.hours * i.tariff;
+    var depreciation = (i.printerValue / i.lifespanH) * i.hours;
+    var cost = filament + energy + depreciation;
+    var afterRisk = cost * (1 + i.riskPct / 100);
+    var afterFee = afterRisk * (1 + i.feePct / 100);
+    var afterProfit = afterFee * (1 + i.profitPct / 100);
+    var finalPrice = afterProfit * i.markup;
+
+    return {
+      filament: filament,
+      energy: energy,
+      depreciation: depreciation,
+      cost: cost,
+      afterRisk: afterRisk,
+      afterFee: afterFee,
+      afterProfit: afterProfit,
+      finalPrice: finalPrice
+    };
+  }
+
+  function toCents(n) {
+    return Math.round(parseFloat((n * 100).toPrecision(12)));
+  }
+
+  function decimalString(n) {
+    var cents = toCents(n);
+    var sign = cents < 0 ? '-' : '';
+    cents = Math.abs(cents);
+    var frac = String(cents % 100);
+    if (frac.length < 2) frac = '0' + frac;
+    return { sign: sign, intPart: String(Math.floor(cents / 100)), frac: frac };
+  }
+
+  function formatBRL(n) {
+    if (typeof n !== 'number' || isNaN(n)) return '—';
+    var d = decimalString(n);
+    var intPart = d.intPart;
+    var grouped = '';
+    while (intPart.length > 3) {
+      grouped = '.' + intPart.slice(-3) + grouped;
+      intPart = intPart.slice(0, -3);
+    }
+    return d.sign + 'R$ ' + intPart + grouped + ',' + d.frac;
+  }
+
+  function csvNumber(n) {
+    var d = decimalString(n);
+    return d.sign + d.intPart + ',' + d.frac;
+  }
+
+  function catalogToCSV(products) {
+    var header = 'Nome;Peso (g);Tempo;Custo total (R$);Preço final (R$)';
+    var lines = products.map(function (p) {
+      var name = '"' + String(p.name).replace(/"/g, '""') + '"';
+      return [name, csvNumber(p.weightG), p.time, csvNumber(p.cost), csvNumber(p.price)].join(';');
+    });
+    return [header].concat(lines).join('\r\n');
+  }
+
+  var api = {
+    parseNumber: parseNumber,
+    parseTimeToHours: parseTimeToHours,
+    computePricing: computePricing,
+    formatBRL: formatBRL,
+    catalogToCSV: catalogToCSV
+  };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = api;
+  } else {
+    global.Precifica = api;
+  }
+})(this);
+</script>
+<script>
+(function () {
+  'use strict';
+  var P = window.Precifica;
+  var CONFIG_KEY = 'precifica3d.config';
+  var CATALOG_KEY = 'precifica3d.catalog';
+
+  var configIds = ['printerValue', 'lifespanH', 'powerW', 'tariff', 'riskPct', 'feePct', 'profitPct', 'markup'];
+  var pieceIds = ['name', 'pricePerKg', 'weightG', 'time'];
+
+  // input element id -> pricing field name (time parses to hours; the rest parse as numbers)
+  var fieldByInput = {
+    printerValue: 'printerValue', lifespanH: 'lifespanH', powerW: 'powerW', tariff: 'tariff',
+    riskPct: 'riskPct', feePct: 'feePct', profitPct: 'profitPct', markup: 'markup',
+    pricePerKg: 'pricePerKg', weightG: 'weightG', time: 'hours'
+  };
+
+  var current = null; // { inputs, result } of last valid calculation
+
+  function $(id) { return document.getElementById(id); }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function loadConfig() {
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem(CONFIG_KEY)); } catch (e) { return; }
+    if (!saved) return;
+    configIds.forEach(function (id) {
+      if (typeof saved[id] === 'string') $(id).value = saved[id];
+    });
+  }
+
+  function saveConfig() {
+    var out = {};
+    configIds.forEach(function (id) { out[id] = $(id).value; });
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(out));
+  }
+
+  function loadCatalog() {
+    try {
+      var items = JSON.parse(localStorage.getItem(CATALOG_KEY));
+      return Array.isArray(items) ? items : [];
+    } catch (e) { return []; }
+  }
+
+  function saveCatalog(items) {
+    localStorage.setItem(CATALOG_KEY, JSON.stringify(items));
+  }
+
+  function readInputs() {
+    var fields = {};
+    Object.keys(fieldByInput).forEach(function (id) {
+      var raw = $(id).value;
+      var parsed = id === 'time' ? P.parseTimeToHours(raw) : P.parseNumber(raw);
+      fields[fieldByInput[id]] = parsed;
+      $(id).classList.toggle('invalid', raw.trim() !== '' && isNaN(parsed));
+    });
+    return fields;
+  }
+
+  function recalc() {
+    var f = readInputs();
+    var r = P.computePricing(f);
+    current = r ? { inputs: f, result: r } : null;
+
+    $('lRisk').textContent = isNaN(f.riskPct) ? '?' : f.riskPct;
+    $('lFee').textContent = isNaN(f.feePct) ? '?' : f.feePct;
+    $('lProfit').textContent = isNaN(f.profitPct) ? '?' : f.profitPct;
+    $('lMarkup').textContent = isNaN(f.markup) ? '?' : f.markup;
+
+    var cells = {
+      rFilament: 'filament', rEnergy: 'energy', rDepreciation: 'depreciation', rCost: 'cost',
+      rRisk: 'afterRisk', rFee: 'afterFee', rProfit: 'afterProfit', rFinal: 'finalPrice'
+    };
+    Object.keys(cells).forEach(function (id) {
+      $(id).textContent = r ? P.formatBRL(r[cells[id]]) : '—';
+    });
+
+    $('saveBtn').disabled = !(r && $('name').value.trim() !== '');
+    $('pdfBtn').disabled = $('saveBtn').disabled;
+    saveConfig();
+  }
+
+  function renderCatalog() {
+    var items = loadCatalog();
+    var wrap = $('catalogWrap');
+    $('exportBtn').disabled = items.length === 0;
+    if (items.length === 0) {
+      wrap.innerHTML = '<p class="empty">Nenhum produto salvo ainda.</p>';
+      return;
+    }
+    var rows = items.map(function (p, i) {
+      return '<tr>' +
+        '<td>' + escapeHtml(p.name) + '</td>' +
+        '<td>' + escapeHtml(p.weightG) + ' g</td>' +
+        '<td>' + escapeHtml(p.time) + '</td>' +
+        '<td>' + P.formatBRL(p.cost) + '</td>' +
+        '<td>' + P.formatBRL(p.price) + '</td>' +
+        '<td class="actions">' +
+          '<button class="ghost" data-action="reload" data-i="' + i + '">Recarregar</button>' +
+          '<button class="ghost" data-action="delete" data-i="' + i + '">Excluir</button>' +
+        '</td></tr>';
+    }).join('');
+    wrap.innerHTML = '<table class="catalog"><thead><tr>' +
+      '<th>Nome</th><th>Peso</th><th>Tempo</th><th>Custo</th><th>Preço</th><th></th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  $('saveBtn').addEventListener('click', function () {
+    if (!current) return;
+    var items = loadCatalog();
+    items.push({
+      name: $('name').value.trim(),
+      pricePerKg: $('pricePerKg').value,
+      weightG: current.inputs.weightG,
+      time: $('time').value.trim(),
+      cost: current.result.cost,
+      price: current.result.finalPrice
+    });
+    saveCatalog(items);
+    renderCatalog();
+  });
+
+  $('catalogWrap').addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    var items = loadCatalog();
+    var i = parseInt(btn.getAttribute('data-i'), 10);
+    if (!items[i]) { renderCatalog(); return; }
+    if (btn.getAttribute('data-action') === 'delete') {
+      items.splice(i, 1);
+      saveCatalog(items);
+      renderCatalog();
+    } else {
+      var p = items[i];
+      $('name').value = p.name;
+      $('pricePerKg').value = p.pricePerKg;
+      $('weightG').value = String(p.weightG).replace('.', ',');
+      $('time').value = p.time;
+      recalc();
+    }
+  });
+
+  $('pdfBtn').addEventListener('click', function () {
+    if (!current) return;
+    var f = current.inputs;
+    var r = current.result;
+    var rows = [
+      ['Filamento', r.filament],
+      ['Energia', r.energy],
+      ['Depreciação', r.depreciation],
+      ['Custo total', r.cost],
+      ['+ Risco (' + f.riskPct + '%)', r.afterRisk],
+      ['+ Taxa extra (' + f.feePct + '%)', r.afterFee],
+      ['+ Lucro bruto (' + f.profitPct + '%)', r.afterProfit]
+    ];
+    $('quote').innerHTML = '<h1>Orçamento — Impressão 3D</h1>' +
+      '<p class="quote-meta">' + escapeHtml($('name').value.trim()) +
+      ' • ' + escapeHtml($('weightG').value.trim()) + ' g' +
+      ' • ' + escapeHtml($('time').value.trim()) +
+      ' • ' + new Date().toLocaleDateString('pt-BR') + '</p>' +
+      '<table>' +
+      rows.map(function (row) {
+        return '<tr><td>' + row[0] + '</td><td>' + P.formatBRL(row[1]) + '</td></tr>';
+      }).join('') +
+      '<tr class="q-final"><td>Preço final (markup ×' + f.markup + ')</td><td>' +
+      P.formatBRL(r.finalPrice) + '</td></tr>' +
+      '</table>';
+    window.print();
+  });
+
+  $('exportBtn').addEventListener('click', function () {
+    var csv = P.catalogToCSV(loadCatalog());
+    var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'precifica3d-catalogo.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  configIds.concat(pieceIds).forEach(function (id) {
+    $(id).addEventListener('input', recalc);
+  });
+
+  loadConfig();
+  renderCatalog();
+  recalc();
+})();
+</script>
+
+</body></html>
