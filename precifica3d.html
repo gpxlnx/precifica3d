@@ -51,6 +51,7 @@
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   table.catalog { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: .9rem; }
   table.catalog th, table.catalog td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+  table.catalog img.thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; display: block; }
   table.catalog td:nth-child(n+2):not(:last-child), table.catalog th:nth-child(n+2) { text-align: right; }
   .actions { display: flex; gap: 6px; justify-content: flex-end; }
   .empty { color: var(--muted); font-size: .9rem; margin: 12px 0 0; }
@@ -75,6 +76,7 @@
     .print-quote td { padding: 6px 0; border-bottom: 1px solid #ddd; }
     .print-quote td:last-child { text-align: right; }
     .print-quote tr.q-final td { border-bottom: none; border-top: 2px solid #000; font-size: 1.2rem; font-weight: 700; padding-top: 10px; }
+    .print-quote img.quote-photo { max-width: 200px; max-height: 200px; border-radius: 8px; margin: 0 0 16px; display: block; }
   }
 </style>
 <main>
@@ -89,6 +91,15 @@
       <label>Peso total da impressão (g)<input id="weightG" placeholder="ex: 100"></label>
       <label>Tempo total de impressão (HH:mm)<input id="time" placeholder="ex: 05:30"></label>
       <label>Quantidade de peças<input id="quantity" value="1" placeholder="ex: 10"></label>
+    </div>
+    <div class="grid" style="margin-top:12px;grid-template-columns:1fr;">
+      <label>Foto do produto (opcional)
+        <input id="photoInput" type="file" accept="image/*" capture="environment">
+      </label>
+    </div>
+    <div id="photoPreviewWrap" style="display:none;margin-top:8px;">
+      <img id="photoPreview" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--border);display:block;">
+      <button class="ghost" id="removePhotoBtn" type="button" style="margin-top:6px;">Remover foto</button>
     </div>
   </section>
 
@@ -316,6 +327,37 @@
   var current = null; // { inputs, result } of last valid calculation
   var editingId = null; // id of catalog entry being edited, or null when creating new
   var searchTerm = '';
+  var currentPhoto = null; // dataURL of the photo attached to the piece being edited, or null
+  var PHOTO_MAX_DIM = 480;
+  var PHOTO_QUALITY = 0.6;
+
+  // downscale + re-encode as JPEG so a multi-MB phone photo doesn't blow the
+  // ~5-10MB localStorage quota after a handful of saved quotes
+  function compressImage(file, maxDim, quality) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        var w = Math.round(img.width * scale) || 1;
+        var h = Math.round(img.height * scale) || 1;
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler a imagem.')); };
+      img.src = url;
+    });
+  }
+
+  function setPhotoPreview(dataUrl) {
+    currentPhoto = dataUrl;
+    $('photoPreviewWrap').style.display = dataUrl ? '' : 'none';
+    $('photoPreview').src = dataUrl || '';
+  }
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -329,6 +371,7 @@
     if (!p.updatedAt) p.updatedAt = p.createdAt;
     if (!p.quantity) p.quantity = 1;
     if (p.batchTotal == null) p.batchTotal = p.price * p.quantity;
+    if (p.photo === undefined) p.photo = null;
     if (!p.fields) {
       var legacy = { name: p.name, pricePerKg: p.pricePerKg, weightG: String(p.weightG).replace('.', ','), time: p.time, quantity: String(p.quantity) };
       p.fields = {};
@@ -373,7 +416,13 @@
   }
 
   function saveCatalog(items) {
-    localStorage.setItem(CATALOG_KEY, JSON.stringify(items));
+    try {
+      localStorage.setItem(CATALOG_KEY, JSON.stringify(items));
+      return true;
+    } catch (e) {
+      alert('Não foi possível salvar: armazenamento do navegador está cheio. Remova fotos antigas ou orçamentos não usados e tente de novo.');
+      return false;
+    }
   }
 
   function readInputs() {
@@ -446,6 +495,7 @@
       var qty = p.quantity || 1;
       var batch = p.batchTotal != null ? p.batchTotal : p.price * qty;
       return '<tr>' +
+        '<td>' + (p.photo ? '<img class="thumb" src="' + p.photo + '" alt="">' : '—') + '</td>' +
         '<td>' + formatDate(p.createdAt) + '</td>' +
         '<td>' + escapeHtml(p.name) + '</td>' +
         '<td>' + escapeHtml(p.weightG) + ' g</td>' +
@@ -461,7 +511,7 @@
         '</td></tr>';
     }).join('');
     wrap.innerHTML = '<table class="catalog"><thead><tr>' +
-      '<th>Data</th><th>Nome</th><th>Peso</th><th>Tempo</th><th>Qtd</th><th>Custo/un</th><th>Preço/un</th><th>Total lote</th><th></th>' +
+      '<th>Foto</th><th>Data</th><th>Nome</th><th>Peso</th><th>Tempo</th><th>Qtd</th><th>Custo/un</th><th>Preço/un</th><th>Total lote</th><th></th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
@@ -469,6 +519,7 @@
     snapshotIds.forEach(function (id) {
       if (p.fields && typeof p.fields[id] === 'string' && p.fields[id] !== '') $(id).value = p.fields[id];
     });
+    setPhotoPreview(p.photo || null);
     recalc();
   }
 
@@ -497,6 +548,7 @@
       items[idx].price = current.result.finalPrice;
       items[idx].batchTotal = current.result.batchTotal;
       items[idx].fields = fields;
+      items[idx].photo = currentPhoto;
       items[idx].updatedAt = now;
       setEditing(null);
     } else {
@@ -512,7 +564,8 @@
         cost: current.result.cost,
         price: current.result.finalPrice,
         batchTotal: current.result.batchTotal,
-        fields: fields
+        fields: fields,
+        photo: currentPhoto
       });
     }
     saveCatalog(items);
@@ -520,6 +573,17 @@
   });
 
   $('cancelEditBtn').addEventListener('click', function () { setEditing(null); });
+
+  $('photoInput').addEventListener('change', function () {
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    compressImage(file, PHOTO_MAX_DIM, PHOTO_QUALITY).then(setPhotoPreview, function (err) {
+      alert(err.message);
+    });
+  });
+
+  $('removePhotoBtn').addEventListener('click', function () { setPhotoPreview(null); });
 
   $('catalogWrap').addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-action]');
@@ -598,7 +662,9 @@
       ['+ Lucro bruto (' + f.profitPct + '%)', r.afterProfit]
     ];
     var qtyLabel = f.quantity > 1 ? (' • ' + f.quantity + ' peças (lote)') : '';
+    var photoHtml = currentPhoto ? '<img class="quote-photo" src="' + currentPhoto + '" alt="">' : '';
     $('quote').innerHTML = '<h1>Orçamento — Impressão 3D</h1>' +
+      photoHtml +
       '<p class="quote-meta">' + escapeHtml($('name').value.trim()) +
       ' • ' + escapeHtml($('weightG').value.trim()) + ' g' +
       ' • ' + escapeHtml($('time').value.trim()) +
